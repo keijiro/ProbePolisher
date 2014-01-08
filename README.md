@@ -7,20 +7,20 @@ both on Unity Basic (free) and Unity Pro.
 Rationale
 ---------
 
-Light probes are useful for filling a gap between the static lighting
-(lightmapping) and the dynamic lighting. However it's troublesome to place
-light probes at proper positions.
+Light probes are useful for filling a gap between the static lighting and
+the dynamic lighting. However it is needed to place a lot of light probes
+at proper positions.
 
 Meanwhile, light probes are also useful for making ambient lighting. It can
 represent several environmental factors (e.g. skylights, reflections from the
-ground, etc.) unlike the commonly used fixed-intensity/color lighting.
-Even more, there is a possibility to use it within a third-party IBL
+ground, etc.) unlike the commonly used fixed-intensity/fixed-color lighting.
+Even more, there is a possibility to use it with a third-party IBL
 (image based lighting) solutions like [Marmoset SkyShop]
 (http://www.marmoset.co/skyshop).
 
-In the latter case, it is needed to place just a few light probes that covers
-the entire scene. And combined with some tweaks, it is possible to edit the
-light probes after baking.
+In the latter case, it needs only a few probes which is suffice to cover the
+entire scene. And combined with some tricks, it is possible to modify the
+lighting after baking.
 
 **ProbePolisher** is a editor plugin designed for these tasks.
 
@@ -33,8 +33,9 @@ baking. For convenience we call it *polishable probes* in this document.
 Baking polishable probes (Pro only)
 -----------------------------------
 
-*For baking polishable probes you need Unity Pro. However you can use pre-baked
-probes even on Unity Basic (some pre-baked probes are included in the package).*
+**Note** - *For baking polishable probes you need Unity Pro. However you can
+use pre-baked probes even on Unity Basic (some pre-baked probes are included
+in the package).*
 
 1. Set up the scene for baking as you like.
 2. Create a *baking jig* from "Create" -> "Baking Rig".
@@ -52,18 +53,18 @@ Using polishable probes
 
 First, you have to set the Light Probe asset in the Lightmapping window.
 
-![Setting Light Probe]()
+![Setting A Light Probe](http://keijiro.github.io/ProbePolisher/setting-a-light-probe.png)
 
 Then enable the 'Use Light Probes' option in renderers.
 
-![Enable Light Probes]()
+![Enabling The Light Probes](http://keijiro.github.io/ProbePolisher/enabling-the-light-probes.png)
 
 **Tips** - To get better results, it is recommended to enable Linear lighting
 in the Player Settings.
 
 You can edit polishable probes on the inspector.
 
-![Inspector]()
+![Inspector](http://keijiro.github.io/ProbePolisher/inspector.png)
 
 There are two factors on the inspector -- the *base ambient* and the *skylight*.
 The *base ambient* means the lighting information which is baked in the light
