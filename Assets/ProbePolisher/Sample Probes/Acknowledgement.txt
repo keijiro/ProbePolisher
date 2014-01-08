@@ -1,0 +1,7 @@
+The asset files in this directory are generated from HDR images
+available on the sIBL Archive.
+
+http://www.hdrlabs.com/sibl/archive.html
+
+These files are shared under the Creative Commons.
+For the detailed information, please see the sIBL Archive page.
