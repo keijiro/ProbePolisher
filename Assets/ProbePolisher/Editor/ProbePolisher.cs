@@ -57,12 +57,14 @@ class ProbePolisher : Editor
         var skyIntensity = coeffs [29];
         var skyColor1 = new Color (coeffs [30], coeffs [31], coeffs [32]);
         var skyColor2 = new Color (coeffs [33], coeffs [34], coeffs [35]);
+        var yaw = coeffs [36];
 
         // Show the controls.
         baseIntensity = EditorGUILayout.Slider ("Base Intensity", baseIntensity, 0.0f, 10.0f);
         skyIntensity = EditorGUILayout.Slider ("Sky Intensity", skyIntensity, 0.0f, 10.0f);
         skyColor1 = EditorGUILayout.ColorField ("Sky Color Top", skyColor1);
         skyColor2 = EditorGUILayout.ColorField ("Sky Color Bottom", skyColor2);
+        yaw = EditorGUILayout.Slider ("Rotation (Y-Axis)", yaw, -180.0f, 180.0f);
 
         // Update the optional information.
         coeffs [28] = baseIntensity;
@@ -73,11 +75,12 @@ class ProbePolisher : Editor
         coeffs [33] = skyColor2.r;
         coeffs [34] = skyColor2.g;
         coeffs [35] = skyColor2.b;
+        coeffs [36] = yaw;
 
         // Update the coefficients with the first probe.
-        var newCoeffs = new float[27];
+        var newCoeffs = RotateSHCoeffs (coeffs, yaw);
         for (var i = 0; i < 27; i++)
-            newCoeffs [i] = coeffs [i] * baseIntensity;
+            newCoeffs [i] *= baseIntensity;
 
         // Add the skylight to the coefficients.
         var midColor = Color.Lerp (skyColor1, skyColor2, 0.5f);
@@ -129,6 +132,7 @@ class ProbePolisher : Editor
             coeffs [33] = 1.0f;     // Sky Color 2
             coeffs [34] = 1.0f;
             coeffs [35] = 0.9f;
+            coeffs [36] = 0.0f;     // Yaw
             probes.coefficients = coeffs;
         }
     }
@@ -184,6 +188,70 @@ class ProbePolisher : Editor
         material.SetVector ("_SHBb", vc [2]);
 
         material.SetVector ("_SHC", new Vector4 (coeffs [24], coeffs [25], coeffs [26], 0) * c4);
+    }
+
+    // Rotate SH coefficients around the y-axis.
+    float[] RotateSHCoeffs (float[] coeffs, float yaw)
+    {
+        yaw = yaw * Mathf.PI / 180;
+
+        // Constants and variables.
+        var rt3d2 = 0.86602540378f; // sqrt(3)/2
+        var sn = Mathf.Sin (yaw);
+        var cs = Mathf.Cos (yaw);
+        var sn2 = Mathf.Sin (yaw * 2);
+        var cs2 = Mathf.Cos (yaw * 2);
+
+        // Copy to a Vector3 array.
+        var temp = new Vector3[9];
+        var ci = 0;
+        for (var i = 0; i < 9; i++)
+            temp [i] = new Vector3 (coeffs [ci++], coeffs [ci++], coeffs [ci++]);
+
+        // Apply X-90 matrix.
+        var temp2 = new Vector3[9];
+        temp2 [0] = temp [0];
+        temp2 [1] = temp [2];
+        temp2 [2] = -temp [1];
+        temp2 [3] = temp [3];
+        temp2 [4] = temp [7];
+        temp2 [5] = -temp [5];
+        temp2 [6] = -0.5f * temp [6] - rt3d2 * temp [8];
+        temp2 [7] = -temp [4];
+        temp2 [8] = -rt3d2 * temp [6] + 0.5f * temp [8];
+
+        // Apply Za matrix.
+        temp [0] = temp2 [0];
+        temp [1] = cs * temp2 [1] + sn * temp2 [3];
+        temp [2] = temp2 [2];
+        temp [3] = -sn * temp2 [1] + cs * temp2 [3];
+        temp [4] = cs2 * temp2 [4] + sn2 * temp2 [8];
+        temp [5] = cs * temp2 [5] + sn * temp2 [7];
+        temp [6] = temp2 [6];
+        temp [7] = -sn * temp2 [5] + cs * temp2 [7];
+        temp [8] = -sn2 * temp2 [4] + cs2 * temp2 [8];
+
+        // Apply X90 matrix.
+        temp2 [0] = temp [0];
+        temp2 [1] = -temp [2];
+        temp2 [2] = temp [1];
+        temp2 [3] = temp [3];
+        temp2 [4] = -temp [7];
+        temp2 [5] = -temp [5];
+        temp2 [6] = -0.5f * temp [6] - rt3d2 * temp [8];
+        temp2 [7] = temp [4];
+        temp2 [8] = -rt3d2 * temp [6] + 0.5f * temp [8];
+
+        // Rearrange the array.
+        var newCoeffs = new float[27];
+        for (var i = 0; i < 9; i++)
+        {
+            newCoeffs [i * 3 + 0] = temp2 [i].x;
+            newCoeffs [i * 3 + 1] = temp2 [i].y;
+            newCoeffs [i * 3 + 2] = temp2 [i].z;
+        }
+
+        return newCoeffs;
     }
 
     #endregion
