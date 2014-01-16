@@ -59,6 +59,8 @@ class ProbePolisher : Editor
         var skyColor2 = new Color (coeffs [33], coeffs [34], coeffs [35]);
         var yaw = coeffs [36];
 
+        EditorGUI.BeginChangeCheck ();
+
         // Show the controls.
         baseIntensity = EditorGUILayout.Slider ("Base Intensity", baseIntensity, 0.0f, 10.0f);
         skyIntensity = EditorGUILayout.Slider ("Sky Intensity", skyIntensity, 0.0f, 10.0f);
@@ -66,49 +68,83 @@ class ProbePolisher : Editor
         skyColor2 = EditorGUILayout.ColorField ("Sky Color Bottom", skyColor2);
         yaw = EditorGUILayout.Slider ("Rotation (Y-Axis)", yaw, -180.0f, 180.0f);
 
-        // Update the optional information.
-        coeffs [28] = baseIntensity;
-        coeffs [29] = skyIntensity;
-        coeffs [30] = skyColor1.r;
-        coeffs [31] = skyColor1.g;
-        coeffs [32] = skyColor1.b;
-        coeffs [33] = skyColor2.r;
-        coeffs [34] = skyColor2.g;
-        coeffs [35] = skyColor2.b;
-        coeffs [36] = yaw;
+        if (EditorGUI.EndChangeCheck ())
+        {
+            // Update the optional information.
+            coeffs [28] = baseIntensity;
+            coeffs [29] = skyIntensity;
+            coeffs [30] = skyColor1.r;
+            coeffs [31] = skyColor1.g;
+            coeffs [32] = skyColor1.b;
+            coeffs [33] = skyColor2.r;
+            coeffs [34] = skyColor2.g;
+            coeffs [35] = skyColor2.b;
+            coeffs [36] = yaw;
 
-        // Update the coefficients with the first probe.
-        var newCoeffs = RotateSHCoeffs (coeffs, yaw);
-        for (var i = 0; i < 27; i++)
-            newCoeffs [i] *= baseIntensity;
+            // Retrieve the SH coefficients from the first probe.
+            var sh = NewVectorArrayFromCoeffs (coeffs, 0);
 
-        // Add the skylight to the coefficients.
-        var midColor = Color.Lerp (skyColor1, skyColor2, 0.5f);
+            // Apply the intensity value.
+            for (var i = 0; i < 9; i++)
+                sh [i] *= baseIntensity;
 
-        newCoeffs [0] += midColor.r * skyIntensity;
-        newCoeffs [1] += midColor.g * skyIntensity;
-        newCoeffs [2] += midColor.b * skyIntensity;
-        
-        newCoeffs [3] += (skyColor2.r - midColor.r) * skyIntensity;
-        newCoeffs [4] += (skyColor2.g - midColor.g) * skyIntensity;
-        newCoeffs [5] += (skyColor2.b - midColor.b) * skyIntensity;
+            // Apply y-axis rotation.
+            sh = RotateSHCoeffs (sh, yaw);
 
-        // Copy the coefficients to the all probes.
-        for (var i = 27 * 2; i < coeffs.Length; i += 27)
-            System.Array.Copy (newCoeffs, 0, coeffs, i, 27);
+            // Add the skylight.
+            var sky1 = ColorToVector3 (skyColor1) * skyIntensity;
+            var sky2 = ColorToVector3 (skyColor2) * skyIntensity;
+            sh [0] += (sky1 + sky2) * 0.5f;
+            sh [1] += (sky2 - sky1) * 0.5f;
 
-        // Update the asset.
-        probes.coefficients = coeffs;
+            // Copy the coefficients to the all probes.
+            var newCoeffs = NewCoeffsFromVectorArray (sh);
+            for (var i = 27 * 2; i < coeffs.Length; i += 27)
+                System.Array.Copy (newCoeffs, 0, coeffs, i, 27);
+
+            // Update the asset.
+            probes.coefficients = coeffs;
+        }
+
+        EditorGUILayout.Space ();
 
         // Skybox generator button.
-        EditorGUILayout.Space ();
         if (GUILayout.Button ("Make/Update Skybox"))
-            MakeSkybox (AssetDatabase.GetAssetPath (target), newCoeffs);
+            MakeSkybox (AssetDatabase.GetAssetPath (target), NewVectorArrayFromCoeffs (coeffs, 27 * 2));
     }
 
     #endregion
 
     #region Private Functions
+
+    // Converts a color value to a vector with dropping alpha.
+    Vector3 ColorToVector3 (Color c)
+    {
+        return new Vector3 (c.r, c.g, c.b);
+    }
+
+    // Converts SH coefficients to a vector array.
+    Vector3[] NewVectorArrayFromCoeffs (float[] coeffs, int offset)
+    {
+        var va = new Vector3[9];
+        for (int i1 = 0, i2 = offset; i1 < 9;)
+            va [i1++] = new Vector3 (coeffs [i2++], coeffs [i2++], coeffs [i2++]);
+        return va;
+    }
+
+    // Converts a vector array to SH coefficients.
+    float[] NewCoeffsFromVectorArray (Vector3[] va)
+    {
+        var coeffs = new float[27];
+        for (int i1 = 0, i2 = 0; i1 < 27;)
+        {
+            var v = va [i2++];
+            coeffs [i1++] = v.x;
+            coeffs [i1++] = v.y;
+            coeffs [i1++] = v.z;
+        }
+        return coeffs;
+    }
 
     // Check if the light probes asset is polishable.
     bool CheckPolishable (LightProbes probes)
@@ -132,126 +168,105 @@ class ProbePolisher : Editor
             coeffs [33] = 1.0f;     // Sky Color 2
             coeffs [34] = 1.0f;
             coeffs [35] = 0.9f;
-            coeffs [36] = 0.0f;     // Yaw
+            coeffs [36] = 0.0f;     // Y-Axis Rotation
             probes.coefficients = coeffs;
         }
     }
 
     // Make or update a skybox material with a polishable probe.
-    void MakeSkybox (string probePath, float[] coeffs)
+    void MakeSkybox (string probePath, Vector3[] coeffs)
     {
         if (!probePath.EndsWith (".asset"))
             return;
-
+        
         // Look for the asset of the material.
         var assetPath = probePath.Substring (0, probePath.Length - 6) + " skybox.mat";
         var material = AssetDatabase.LoadAssetAtPath (assetPath, typeof(Material)) as Material;
-
+        
         // If there is no asset, make a new one.
         if (material == null)
         {
             material = new Material (Shader.Find ("ProbePolisher/SH Skybox"));
             AssetDatabase.CreateAsset (material, assetPath);
         }
-
-        // Rotate the SH coefficients and set it to the material.
+        
+        // Convert the SH coefficients into the shader parameters.
         float c0 = 0.28209479177f;  //       1  / ( 2 * sqrt(pi))
         float c1 = 0.32573500793f;  // sqrt( 3) / ( 3 * sqrt(pi))
         float c2 = 0.27313710764f;  // sqrt(15) / ( 8 * sqrt(pi))
         float c3 = 0.07884789131f;  // sqrt( 5) / (16 * sqrt(pi))
         float c4 = 0.13656855382f;  // c2 / 2
 
-        var vc = new Vector4[3];
-        
-        for (var i = 0; i < 3; i++)
-        {
-            vc [i].x = -c1 * coeffs [i + 9];
-            vc [i].y = -c1 * coeffs [i + 3];
-            vc [i].z = +c1 * coeffs [i + 6];
-            vc [i].w = +c0 * coeffs [i] - c3 * coeffs [i + 18];
-        }
-        
-        material.SetVector ("_SHAr", vc [0]);
-        material.SetVector ("_SHAg", vc [1]);
-        material.SetVector ("_SHAb", vc [2]);
-        
-        for (var i = 0; i < 3; i++)
-        {
-            vc [i].x = +c2 * coeffs [i + 12];
-            vc [i].y = -c2 * coeffs [i + 15];
-            vc [i].z = +c3 * coeffs [i + 18] * 3;
-            vc [i].w = -c2 * coeffs [i + 21];
-        }
-        
-        material.SetVector ("_SHBr", vc [0]);
-        material.SetVector ("_SHBg", vc [1]);
-        material.SetVector ("_SHBb", vc [2]);
+        var t0 = -c1 * coeffs [3];
+        var t1 = -c1 * coeffs [1];
+        var t2 = +c1 * coeffs [2];
+        var t3 = +c0 * coeffs [0] - c3 * coeffs [6];
 
-        material.SetVector ("_SHC", new Vector4 (coeffs [24], coeffs [25], coeffs [26], 0) * c4);
+        material.SetVector ("_SHAr", new Vector4 (t0.x, t1.x, t2.x, t3.x));
+        material.SetVector ("_SHAg", new Vector4 (t0.y, t1.y, t2.y, t3.y));
+        material.SetVector ("_SHAb", new Vector4 (t0.z, t1.z, t2.z, t3.z));
+
+        t0 = +c2 * coeffs [4];
+        t1 = -c2 * coeffs [5];
+        t2 = +c3 * coeffs [6] * 3;
+        t3 = -c2 * coeffs [7];
+
+        material.SetVector ("_SHBr", new Vector4 (t0.x, t1.x, t2.x, t3.x));
+        material.SetVector ("_SHBg", new Vector4 (t0.y, t1.y, t2.y, t3.y));
+        material.SetVector ("_SHBb", new Vector4 (t0.z, t1.z, t2.z, t3.z));
+
+        material.SetVector ("_SHC", coeffs [8] * c4);
     }
 
     // Rotate SH coefficients around the y-axis.
-    float[] RotateSHCoeffs (float[] coeffs, float yaw)
+    Vector3[] RotateSHCoeffs (Vector3[] coeffs, float yawDegree)
     {
-        yaw = yaw * Mathf.PI / 180;
-
         // Constants and variables.
-        var rt3d2 = 0.86602540378f; // sqrt(3)/2
+        var yaw = yawDegree * Mathf.PI / 180;
         var sn = Mathf.Sin (yaw);
         var cs = Mathf.Cos (yaw);
         var sn2 = Mathf.Sin (yaw * 2);
         var cs2 = Mathf.Cos (yaw * 2);
-
-        // Copy to a Vector3 array.
-        var temp = new Vector3[9];
-        var ci = 0;
-        for (var i = 0; i < 9; i++)
-            temp [i] = new Vector3 (coeffs [ci++], coeffs [ci++], coeffs [ci++]);
+        var rt3d2 = 0.86602540378f; // sqrt(3)/2
 
         // Apply X-90 matrix.
-        var temp2 = new Vector3[9];
-        temp2 [0] = temp [0];
-        temp2 [1] = temp [2];
-        temp2 [2] = -temp [1];
-        temp2 [3] = temp [3];
-        temp2 [4] = temp [7];
-        temp2 [5] = -temp [5];
-        temp2 [6] = -0.5f * temp [6] - rt3d2 * temp [8];
-        temp2 [7] = -temp [4];
-        temp2 [8] = -rt3d2 * temp [6] + 0.5f * temp [8];
+        var temp = new Vector3[9]{
+            coeffs [0],
+            coeffs [2],
+            -coeffs [1],
+            coeffs [3],
+            coeffs [7],
+            -coeffs [5],
+            -0.5f * coeffs [6] - rt3d2 * coeffs [8],
+            -coeffs [4],
+            -rt3d2 * coeffs [6] + 0.5f * coeffs [8]
+        };
 
         // Apply Za matrix.
-        temp [0] = temp2 [0];
-        temp [1] = cs * temp2 [1] + sn * temp2 [3];
-        temp [2] = temp2 [2];
-        temp [3] = -sn * temp2 [1] + cs * temp2 [3];
-        temp [4] = cs2 * temp2 [4] + sn2 * temp2 [8];
-        temp [5] = cs * temp2 [5] + sn * temp2 [7];
-        temp [6] = temp2 [6];
-        temp [7] = -sn * temp2 [5] + cs * temp2 [7];
-        temp [8] = -sn2 * temp2 [4] + cs2 * temp2 [8];
+        var temp2 = new Vector3[9]{
+            temp [0],
+            cs * temp [1] + sn * temp [3],
+            temp [2],
+            -sn * temp [1] + cs * temp [3],
+            cs2 * temp [4] + sn2 * temp [8],
+            cs * temp [5] + sn * temp [7],
+            temp [6],
+            -sn * temp [5] + cs * temp [7],
+            -sn2 * temp [4] + cs2 * temp [8],
+        };
 
         // Apply X90 matrix.
-        temp2 [0] = temp [0];
-        temp2 [1] = -temp [2];
-        temp2 [2] = temp [1];
-        temp2 [3] = temp [3];
-        temp2 [4] = -temp [7];
-        temp2 [5] = -temp [5];
-        temp2 [6] = -0.5f * temp [6] - rt3d2 * temp [8];
-        temp2 [7] = temp [4];
-        temp2 [8] = -rt3d2 * temp [6] + 0.5f * temp [8];
-
-        // Rearrange the array.
-        var newCoeffs = new float[27];
-        for (var i = 0; i < 9; i++)
-        {
-            newCoeffs [i * 3 + 0] = temp2 [i].x;
-            newCoeffs [i * 3 + 1] = temp2 [i].y;
-            newCoeffs [i * 3 + 2] = temp2 [i].z;
-        }
-
-        return newCoeffs;
+        return new Vector3[9]{
+            temp2 [0],
+            -temp2 [2],
+            temp2 [1],
+            temp2 [3],
+            -temp2 [7],
+            -temp2 [5],
+            -0.5f * temp2 [6] - rt3d2 * temp2 [8],
+            temp2 [4],
+            -rt3d2 * temp2 [6] + 0.5f * temp2 [8]
+        };
     }
 
     #endregion
