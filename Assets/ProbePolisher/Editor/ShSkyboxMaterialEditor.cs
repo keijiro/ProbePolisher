@@ -20,6 +20,7 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
+
 using UnityEngine;
 using UnityEditor;
 using System.Collections;
@@ -27,15 +28,11 @@ using System.Collections;
 // Custom editor for the SH skybox shader.
 public class ShSkyboxMaterialEditor : MaterialEditor
 {
-    public override void OnInspectorGUI ()
+    public override void OnInspectorGUI()
     {
-        serializedObject.Update ();
-
-        EditorGUI.BeginChangeCheck ();
-
-        FloatProperty (GetMaterialProperty (targets, "_Intensity"), "Intensity");
-
-        if (EditorGUI.EndChangeCheck ())
-            PropertiesChanged ();
+        serializedObject.Update();
+        EditorGUI.BeginChangeCheck();
+        FloatProperty(GetMaterialProperty(targets, "_Intensity"), "Intensity");
+        if (EditorGUI.EndChangeCheck()) PropertiesChanged();
     }
 }
