@@ -216,6 +216,7 @@ MonoBehaviour:
   - {fileID: 19700000, guid: e2583220faf8d4cd79ffb91a12681b62, type: 2}
   - {fileID: 19700000, guid: f48abba2be5ee44b9bcbfc2551cca947, type: 2}
   updateSkybox: 1
+  skyboxIntensity: 1
   mix: 0
 --- !u!81 &642751785
 AudioListener:

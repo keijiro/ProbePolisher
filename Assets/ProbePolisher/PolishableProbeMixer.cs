@@ -33,6 +33,10 @@ public class PolishableProbeMixer : MonoBehaviour
     // Updates the skybox?
     public bool updateSkybox;
 
+    // Intensity of the skybox.
+    public float skyboxIntensity = 1.0f;
+    float prevSkyboxIntensity;
+
     // Mixing position.
     public float mix;
     float prevMix = -1.0f;
@@ -48,8 +52,8 @@ public class PolishableProbeMixer : MonoBehaviour
 
     void Update ()
     {
-        // Do nothing if the mixing position isn't changed.
-        if (mix == prevMix) return;
+        // Do nothing if nothing was changed.
+        if (mix == prevMix && skyboxIntensity == prevSkyboxIntensity) return;
 
         if (probe == null)
         {
@@ -88,8 +92,12 @@ public class PolishableProbeMixer : MonoBehaviour
 
         // Update the skybox if needed.
         if (updateSkybox && skybox != null)
+        {
             ProbePolisher.UpdateSkyboxMaterial(skybox, coeffs);
+            skybox.SetFloat("_Intensity", skyboxIntensity);
+        }
 
         prevMix = mix;
+        prevSkyboxIntensity = skyboxIntensity;
     }
 }
