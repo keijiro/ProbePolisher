@@ -30,16 +30,16 @@ public class PolishableProbeMixer : MonoBehaviour
     // Input light probes.
     public LightProbes[] sourceProbes;
 
-    // Updates the skybox?
-    public bool updateSkybox;
+    // Mixing parameters.
+    public float mix = 0.0f;
+    public float intensity = 1.0f;
+    float prevMix = -1.0f;
+    float prevIntensity = -1.0f;
 
-    // Intensity of the skybox.
+    // Skybox parameters.
+    public bool updateSkybox = false;
     public float skyboxIntensity = 1.0f;
     float prevSkyboxIntensity;
-
-    // Mixing position.
-    public float mix;
-    float prevMix = -1.0f;
 
     // Temporary objects.
     LightProbes probe;
@@ -53,7 +53,7 @@ public class PolishableProbeMixer : MonoBehaviour
     void Update ()
     {
         // Do nothing if nothing was changed.
-        if (mix == prevMix && skyboxIntensity == prevSkyboxIntensity) return;
+        if (mix == prevMix && intensity == prevIntensity && skyboxIntensity == prevSkyboxIntensity) return;
 
         if (probe == null)
         {
@@ -83,7 +83,7 @@ public class PolishableProbeMixer : MonoBehaviour
         var coeffs = new Vector3[9];
         var mixRate = mix - mixIndex;
         for (var i = 0; i < 9; i++)
-            coeffs[i] = Vector3.Lerp(source1[i], source2[i], mixRate);
+            coeffs[i] = Vector3.Lerp(source1[i], source2[i], mixRate) * intensity;
 
         // Update the probe with the mixed coefficients.
         var temp = probe.coefficients;
@@ -98,6 +98,7 @@ public class PolishableProbeMixer : MonoBehaviour
         }
 
         prevMix = mix;
+        prevIntensity = intensity;
         prevSkyboxIntensity = skyboxIntensity;
     }
 }
